@@ -2,66 +2,69 @@
 
 #include "ofMain.h"
 
-#include <Python.h>
+#include <pybind11/pybind11.h>
 
-namespace ofxPy {
-	class Object;
-	
-	void setup(const string& module_path = "");
-	
-	Object& global();
-	
-	Object eval(const string &code);
-	void run(const string& path);
-}
+#define OFXPY_BEGIN_NAMESPACE namespace ofx { namespace Py {
+#define OFXPY_END_NAMESPACE } }
 
-class ofxPy::Object
+OFXPY_BEGIN_NAMESPACE
+
+namespace py = pybind11;
+
+using namespace pybind11;
+
+class Context
 {
 public:
 	
-	Object();
-	Object(PyObject *obj);
-	Object(const Object &copy);
-	virtual ~Object();
+	Context();
+	virtual ~Context();
 	
-	Object(int v);
-	Object(float v);
-	Object(bool v);
-	Object(const string& v);
+	bool setup();
+	void dispose();
 	
-	Object& operator=(const Object &copy);
+	//
 	
-	bool isNone() const;
+	py::object eval(const std::string& code);
 	
-	double asNumber() const;
+	template <typename Ret>
+	Ret eval(const std::string& code);
 	
-	inline float asFloat() const { return asNumber(); }
-	inline int asInt() const { return asNumber(); }
+	void exec(const std::string& code);
+	void run(const std::string& path);
 	
-	bool asBool() const;
-	string asString() const;
+	bool import(py::module m);
 	
-	size_t size() const;
-	Object get(const string& key);
-	Object get(size_t index);
-	
-	const Object& set(const string& key, const Object &v);
-	const Object& set(size_t index, const Object &v);
-	
-	Object call();
-	
-	inline operator PyObject* () { return obj; }
-	inline operator PyObject* const () const { return obj; }
-
-	friend ostream& operator<<(ostream &os, const ofxPy::Object &obj)
-	{
-		os << obj.asString();
-		return os;
-	}
+	void appendPath(const std::string& path);
 	
 protected:
 	
-	PyObject *obj;
+	bool inited;
+	
+	py::module py_main;
+	py::dict py_global;
 };
 
+//
 
+template <typename T, typename ContainerType, typename KeyType>
+inline T get(ContainerType a, KeyType key)
+{
+	return ((py::object)a[key]).cast<T>();
+}
+
+//
+
+template <typename Ret>
+inline Ret Context::eval(const std::string& code)
+{
+	try {
+		return eval(code).cast<Ret>();
+	} catch(...) {
+		throw;
+	}
+}
+
+OFXPY_END_NAMESPACE
+
+namespace ofxPy = ofx::Py;
